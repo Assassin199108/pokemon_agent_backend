@@ -122,6 +122,12 @@ npm config set registry https://registry.npmmirror.com
 https://sourceforge.net/projects/mingw/
 忘记安装配置怎么选看:<a>https://blog.csdn.net/QuantumYou/article/details/119676283</a>
 
+# 安装gemini-cli
+```
+1. 安装gemini-cli npm -g install @google/gemini-cli
+2. 配置API Key，环境变量 新建变量名 GEMINI_API_KEY 输入API KEY
+3. 启动 gemini
+```
 
 python包管理: uv
 交互式代码执行环境： Jupyter Notebook
