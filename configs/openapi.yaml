@@ -1,0 +1,505 @@
+openapi: 3.0.3
+info:
+  title: 宝可梦Agent API
+  description: |
+    实时网络检索与对战型宝可梦Multi-Agent系统API
+
+    此API提供两种宝可梦信息检索方式：
+    1. **直接检索模式** (PokemonInfoTool) - 快速获取宝可梦基础信息
+    2. **智能Agent模式** (PokemonReactTool) - 使用ReAct模式智能收集详细宝可梦数据
+
+    所有API响应均为JSON格式，支持中英文双语显示
+  version: 0.1.0
+  contact:
+    name: Pokemon Agent Team
+    email: team@pokemon-agent.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000
+    description: 本地开发服务器
+  - url: https://api.pokemon-agent.com
+    description: 生产服务器
+
+tags:
+  - name: pokemon
+    description: 宝可梦信息检索相关API
+  - name: agent
+    description: Agent智能检索相关API
+  - name: health
+    description: 系统健康检查
+
+paths:
+  /health:
+    get:
+      tags:
+        - health
+      summary: 健康检查
+      description: 检查API服务状态
+      operationId: healthCheck
+      responses:
+        '200':
+          description: 服务正常运行
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                    example: "0.1.0"
+
+  /api/v1/pokemon/info:
+    post:
+      tags:
+        - pokemon
+      summary: 获取宝可梦信息（直接模式）
+      description: |
+        使用PokemonInfoTool直接检索宝可梦信息
+
+        工作流程：
+        1. 通过Tavily API搜索宝可梦相关信息
+        2. 智能选择权威来源（优先wiki.52poke.com等）
+        3. 抓取并解析网页内容
+        4. 使用LLM提取结构化数据
+
+        特点：快速、直接，适合获取基础信息
+      operationId: getPokemonInfo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pokemon_name
+              properties:
+                pokemon_name:
+                  type: string
+                  description: 宝可梦名称（支持中文或英文）
+                  example: "Pikachu"
+      responses:
+        '200':
+          description: 成功获取宝可梦信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PokemonInfoResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: 请求超时
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/pokemon/react-info:
+    post:
+      tags:
+        - agent
+      summary: 智能获取宝可梦信息（ReAct模式）
+      description: |
+        使用PokemonReactTool通过ReAct模式智能收集宝可梦信息
+
+        工作流程：
+        1. 思考分析当前信息缺口
+        2. 选择合适的工具进行行动
+        3. 观察工具返回结果
+        4. 重复思考-行动-观察循环，直到信息充分
+
+        特点：智能、全面，适合获取详细信息，但耗时较长
+
+        此模式会自动使用MCP工具（如果可用）以及网络搜索和内容提取工具
+      operationId: getPokemonInfoReact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pokemon_name
+              properties:
+                pokemon_name:
+                  type: string
+                  description: 宝可梦名称（支持中文或英文）
+                  example: "Charizard"
+      responses:
+        '200':
+          description: 成功获取宝可梦信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PokemonReactResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: 请求超时
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    PokemonBasicInfo:
+      type: object
+      description: 宝可梦基础信息
+      properties:
+        name:
+          type: string
+          description: 宝可梦名称（中英双语）
+          example: "皮卡丘 Pikachu"
+        national_dex_number:
+          type: string
+          description: 全国图鉴编号
+          example: "025"
+        types:
+          type: array
+          description: 属性列表（中英双语）
+          items:
+            type: string
+          example: ["电 Electric"]
+        species:
+          type: string
+          description: 分类（中英双语）
+          example: "鼠宝可梦 Mouse Pokémon"
+        height:
+          type: string
+          description: 身高（中英双语）
+          example: "0.4米 0.4m"
+        weight:
+          type: string
+          description: 体重（中英双语）
+          example: "6.0公斤 6.0kg"
+        abilities:
+          type: array
+          description: 特性列表（中英双语）
+          items:
+            type: string
+          example: ["静电 Static", "避雷针 Lightning Rod"]
+        gender_ratio:
+          type: string
+          description: 性别比例（中英双语）
+          example: "50%雄性 50% Male, 50%雌性 50% Female"
+        catch_rate:
+          type: string
+          description: 捕获率
+          example: "190"
+        base_friendship:
+          type: string
+          description: 基础亲密度
+          example: "70"
+        base_experience:
+          type: string
+          description: 基础经验值
+          example: "112"
+        color:
+          type: string
+          description: 颜色（中英双语）
+          example: "黄色 Yellow"
+        egg_groups:
+          type: array
+          description: 蛋群列表（中英双语）
+          items:
+            type: string
+          example: ["陆上蛋群 Field Group", "妖精蛋群 Fairy Group"]
+        egg_cycles:
+          type: string
+          description: 孵化周期（中英双语）
+          example: "10 孵化周期 Egg Cycles"
+        base_happiness:
+          type: string
+          description: 基础幸福度（中英双语）
+          example: "70 初始友好度 Base Happiness"
+        growth_rate:
+          type: string
+          description: 成长速度（中英双语）
+          example: "中等 Medium"
+        habitat:
+          type: string
+          description: 栖息地（中英双语）
+          example: "森林 Forest Habitat"
+
+    PokemonBattleStats:
+      type: object
+      description: 宝可梦战斗数据
+      properties:
+        hp:
+          type: string
+          description: 生命值（中英双语）
+          example: "35 生命值 HP"
+        attack:
+          type: string
+          description: 攻击（中英双语）
+          example: "55 攻击 Attack"
+        defense:
+          type: string
+          description: 防御（中英双语）
+          example: "40 防御 Defense"
+        special_attack:
+          type: string
+          description: 特攻（中英双语）
+          example: "50 特攻 Special Attack"
+        special_defense:
+          type: string
+          description: 特防（中英双语）
+          example: "50 特防 Special Defense"
+        speed:
+          type: string
+          description: 速度（中英双语）
+          example: "90 速度 Speed"
+        base_stat_total:
+          type: string
+          description: 种族值总和（中英双语）
+          example: "320 总和 Total"
+        effort_values:
+          type: string
+          description: 努力值（中英双语）
+          example: "速度 Speed: 2 努力值 EV"
+
+    PokemonEvolutionChain:
+      type: object
+      description: 宝可梦进化链信息
+      properties:
+        evolution_stage:
+          type: string
+          description: 进化阶段（中英双语）
+          example: "基础形态 Basic Stage"
+        evolution_methods:
+          type: string
+          description: 进化方法（中英双语）
+          example: "使用雷之石进化 Evolve using Thunder Stone"
+        previous_form:
+          type: string
+          description: 前形态（中英双语）
+          example: "皮丘 Pichu"
+        next_form:
+          type: string
+          description: 后形态（中英双语）
+          example: "雷丘 Raichu"
+
+    PokemonGameInfo:
+      type: object
+      description: 宝可梦游戏信息
+      properties:
+        generation_introduced:
+          type: string
+          description: 首次出现世代（中英双语）
+          example: "第一代 Generation I"
+        version_debut:
+          type: string
+          description: 首次登场版本（中英双语）
+          example: "红/绿/蓝版本 Red/Green/Blue Version"
+        location_methods:
+          type: string
+          description: 捕获地点/方式（中英双语）
+          example: "常青森林 Viridian Forest"
+
+    PokemonImageUrls:
+      type: object
+      description: 宝可梦图片URL
+      properties:
+        official_artwork:
+          type: string
+          description: 官方立绘URL
+          example: "https://wiki.52poke.com/wiki/File:025Pikachu.png"
+        sprite:
+          type: string
+          description: 精灵图URL
+          example: "https://example.com/sprite/pikachu.png"
+        type_chart:
+          type: string
+          description: 属性相克表URL
+          example: "https://example.com/type-chart/electric.png"
+
+    PokemonCompleteData:
+      type: object
+      description: 完整的宝可梦数据
+      properties:
+        basic_info:
+          $ref: '#/components/schemas/PokemonBasicInfo'
+        battle_stats:
+          $ref: '#/components/schemas/PokemonBattleStats'
+        evolution_chain:
+          $ref: '#/components/schemas/PokemonEvolutionChain'
+        game_info:
+          $ref: '#/components/schemas/PokemonGameInfo'
+        additional_info:
+          type: object
+          description: 额外信息
+          properties:
+            color:
+              type: string
+              description: 颜色（中英双语）
+            habitat:
+              type: string
+              description: 栖息地（中英双语）
+        image_urls:
+          $ref: '#/components/schemas/PokemonImageUrls'
+
+    PokemonInfoResponse:
+      type: object
+      description: PokemonInfoTool响应
+      properties:
+        pokemon_name:
+          type: string
+          description: 查询的宝可梦名称
+          example: "Pikachu"
+        source_url:
+          type: string
+          description: 信息来源URL
+          example: "https://wiki.52poke.com/wiki/%E7%9A%AE%E5%8D%A1%E4%B8%98"
+        extraction_timestamp:
+          type: string
+          description: 提取时间戳
+          example: '{"timestamp": "2024-01-15T10:30:00Z"}'
+        data:
+          $ref: '#/components/schemas/PokemonCompleteData'
+        error:
+          type: string
+          description: 错误信息（如果有）
+          example: "Search operation timed out after 30 seconds"
+
+    PokemonReactResponse:
+      type: object
+      description: PokemonReactTool响应
+      properties:
+        success:
+          type: boolean
+          description: 是否成功
+          example: true
+        pokemon_name:
+          type: string
+          description: 查询的宝可梦名称
+          example: "Charizard"
+        final_answer:
+          $ref: '#/components/schemas/PokemonCompleteData'
+        agent_output:
+          type: string
+          description: Agent原始输出
+        mode:
+          type: string
+          description: 运行模式
+          example: "react_agent"
+        error:
+          type: string
+          description: 错误信息（如果有）
+          example: "最终答案JSON格式错误"
+
+    ErrorResponse:
+      type: object
+      description: 错误响应
+      properties:
+        error:
+          type: string
+          description: 错误描述
+          example: "Invalid pokemon name provided"
+        details:
+          type: string
+          description: 错误详情
+          example: "The pokemon name must be at least 2 characters long"
+        timestamp:
+          type: string
+          description: 错误发生时间
+          format: date-time
+
+  examples:
+    PikachuResponse:
+      summary: 皮卡丘完整响应示例
+      value:
+        pokemon_name: "Pikachu"
+        source_url: "https://wiki.52poke.com/wiki/%E7%9A%AE%E5%8D%A1%E4%B8%98"
+        extraction_timestamp: '{"timestamp": "2024-01-15T10:30:00Z"}'
+        data:
+          basic_info:
+            name: "皮卡丘 Pikachu"
+            national_dex_number: "025"
+            types: ["电 Electric"]
+            species: "鼠宝可梦 Mouse Pokémon"
+            height: "0.4米 0.4m"
+            weight: "6.0公斤 6.0kg"
+            abilities: ["静电 Static", "避雷针 Lightning Rod"]
+            gender_ratio: "50%雄性 50% Male, 50%雌性 50% Female"
+            catch_rate: "190"
+            base_friendship: "70"
+            base_experience: "112"
+          battle_stats:
+            hp: "35 生命值 HP"
+            attack: "55 攻击 Attack"
+            defense: "40 防御 Defense"
+            special_attack: "50 特攻 Special Attack"
+            special_defense: "50 特防 Special Defense"
+            speed: "90 速度 Speed"
+            base_stat_total: "320 总和 Total"
+            effort_values: "速度 Speed: 2 努力值 EV"
+          evolution_chain:
+            evolution_stage: "基础形态 Basic Stage"
+            evolution_methods: "使用雷之石进化 Evolve using Thunder Stone"
+            previous_form: "皮丘 Pichu"
+            next_form: "雷丘 Raichu"
+          game_info:
+            generation_introduced: "第一代 Generation I"
+            version_debut: "红/绿/蓝版本 Red/Green/Blue Version"
+            location_methods: "常青森林 Viridian Forest"
+          additional_info:
+            color: "黄色 Yellow"
+            egg_groups: ["陆上蛋群 Field Group", "妖精蛋群 Fairy Group"]
+            egg_cycles: "10 孵化周期 Egg Cycles"
+            base_happiness: "70 初始友好度 Base Happiness"
+            growth_rate: "中等 Medium"
+            habitat: "森林 Forest Habitat"
+          image_urls:
+            official_artwork: "https://wiki.52poke.com/wiki/File:025Pikachu.png"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API密钥认证
+
+security:
+  - ApiKeyAuth: []
+
+x-tagGroups:
+  - name: 核心API
+    tags:
+      - pokemon
+      - agent
+  - name: 系统
+    tags:
+      - health
+
+externalDocs:
+  description: 项目文档
+  url: https://github.com/your-org/pokemon-agent-backend
